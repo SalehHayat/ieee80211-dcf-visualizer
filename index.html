@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>IEEE 802.11 DCF Visualizer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #21262d;
+  --border: #30363d;
+  --fg: #e6edf3;
+  --muted: #8b949e;
+  --accent: #00d2ff;
+  --accent-dim: rgba(0,210,255,0.1);
+  --accent2: #a371f7;
+  --green: #3fb950;
+  --red: #f85149;
+  --orange: #f0883e;
+  --yellow: #d29922;
+  color-scheme: dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:'Inter',sans-serif;font-size:14px;line-height:1.5;min-height:100vh;overflow-x:hidden}
+
+/* ── HEADER ── */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px max(16px,env(safe-area-inset-left,0px));display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-badge{background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px;letter-spacing:.05em}
+.logo-title{font-size:15px;font-weight:600;color:var(--fg)}
+.logo-sub{font-size:12px;color:var(--muted)}
+.header-links{display:flex;gap:8px}
+.header-links a{color:var(--muted);font-size:12px;text-decoration:none;padding:5px 10px;border:1px solid var(--border);border-radius:6px;transition:all .2s}
+.header-links a:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── LAYOUT ── */
+.app{display:grid;grid-template-columns:280px 1fr;grid-template-rows:auto 1fr;min-height:calc(100vh - 57px)}
+@media(max-width:800px){.app{grid-template-columns:1fr;grid-template-rows:auto auto 1fr}}
+
+/* ── SIDEBAR ── */
+aside{background:var(--surface);border-right:1px solid var(--border);padding:16px;grid-row:1/3;overflow-y:auto}
+@media(max-width:800px){aside{grid-row:auto;border-right:none;border-bottom:1px solid var(--border)}}
+.panel-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+
+/* algo selector */
+.algo-tabs{display:flex;gap:6px;margin-bottom:16px}
+.algo-tab{flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif}
+.algo-tab.active-beb{background:rgba(240,136,62,.12);border-color:var(--orange);color:var(--orange)}
+.algo-tab.active-chubb{background:rgba(0,210,255,.1);border-color:var(--accent);color:var(--accent)}
+.algo-tab.active-both{background:rgba(163,113,247,.1);border-color:var(--accent2);color:var(--accent2)}
+.algo-tab:hover:not(.active-beb):not(.active-chubb):not(.active-both){border-color:var(--muted);color:var(--fg)}
+
+/* controls */
+.control-group{margin-bottom:14px}
+.control-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.control-label span{font-size:12px;color:var(--muted)}
+.control-label strong{font-size:13px;font-family:'JetBrains Mono',monospace;color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--fg);padding:7px 10px;border-radius:6px;font-size:13px;font-family:'Inter',sans-serif;cursor:pointer;outline:none}
+select:focus{border-color:var(--accent)}
+
+/* run controls */
+.run-controls{display:flex;gap:8px;margin-top:4px;margin-bottom:16px}
+.btn{padding:8px 14px;border-radius:7px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#000;flex:1;justify-content:center}
+.btn-primary:hover{background:#00b8e0}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--muted);color:var(--fg)}
+.btn-danger{background:rgba(248,81,73,.15);color:var(--red);border:1px solid rgba(248,81,73,.3)}
+.btn-danger:hover{background:rgba(248,81,73,.25)}
+
+/* speed */
+.speed-row{display:flex;gap:6px;margin-bottom:16px}
+.speed-btn{flex:1;padding:5px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+.speed-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+
+/* info box */
+.info-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;line-height:1.6;color:var(--muted)}
+.info-box b{color:var(--fg)}
+
+/* ── STATS BAR ── */
+.stats-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px max(16px,env(safe-area-inset-left,0px));display:flex;gap:6px;flex-wrap:wrap}
+.stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;min-width:120px;flex:1}
+.stat-label{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.stat-value{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--accent)}
+.stat-value.red{color:var(--red)}
+.stat-value.green{color:var(--green)}
+.stat-value.orange{color:var(--orange)}
+.stat-sub{font-size:10px;color:var(--muted)}
+
+/* ── MAIN AREA ── */
+main{padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* section card */
+.section-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.section-head{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.section-head-title{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.section-body{padding:14px}
+
+/* channel timeline */
+#channel-canvas{width:100%;height:160px;display:block;border-radius:6px;background:var(--bg)}
+
+/* node lanes */
+#lanes-container{display:flex;flex-direction:column;gap:4px}
+.node-lane{display:flex;align-items:center;gap:8px;height:32px}
+.node-label{font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--muted);width:52px;flex-shrink:0;text-align:right}
+.lane-track{flex:1;height:24px;background:var(--surface2);border-radius:4px;overflow:hidden;position:relative}
+.lane-canvas{width:100%;height:100%;display:block}
+
+/* event log */
+#event-log{height:160px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:11px;display:flex;flex-direction:column;gap:2px}
+.log-entry{display:flex;gap:8px;padding:2px 4px;border-radius:3px}
+.log-entry:hover{background:var(--surface2)}
+.log-time{color:var(--muted);flex-shrink:0;min-width:48px}
+.log-node{font-weight:600;flex-shrink:0;min-width:48px}
+.log-msg{color:var(--fg)}
+.log-collision{background:rgba(248,81,73,.08)}
+.log-collision .log-msg{color:var(--red)}
+.log-success .log-msg{color:var(--green)}
+.log-backoff .log-msg{color:var(--muted)}
+
+/* comparison table */
+#cmp-table{width:100%;border-collapse:collapse;font-size:13px}
+#cmp-table th{text-align:left;padding:8px 12px;border-bottom:2px solid var(--border);color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+#cmp-table td{padding:8px 12px;border-bottom:1px solid var(--border)}
+#cmp-table tr:last-child td{border-bottom:none}
+#cmp-table .beb-val{color:var(--orange)}
+#cmp-table .chubb-val{color:var(--accent)}
+#cmp-table .better{font-weight:700}
+
+/* throughput chart */
+#throughput-canvas{width:100%;height:180px;display:block}
+
+/* status pill */
+.status-pill{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600}
+.status-pill.running{background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.3)}
+.status-pill.stopped{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+.status-pill.paused{background:rgba(210,153,34,.15);color:var(--yellow);border:1px solid rgba(210,153,34,.3)}
+
+/* scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+/* export btn */
+.export-row{display:flex;gap:8px;margin-top:8px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-badge">IEEE 802.11 DCF</span>
+    <div>
+      <div class="logo-title">Backoff Algorithm Visualizer</div>
+      <div class="logo-sub">BEB vs CHUBB — Interactive Simulation</div>
+    </div>
+  </div>
+  <div class="header-links">
+    <a href="https://github.com/SalehHayat/ieee80211-dcf-visualizer" target="_blank">⬡ GitHub</a>
+    <a href="https://doi.org/10.22967/HCIS.2024.14.024" target="_blank">📄 Base Paper</a>
+  </div>
+</header>
+
+<div class="app">
+  <!-- ── SIDEBAR ── -->
+  <aside>
+    <div class="panel-title">Algorithm</div>
+    <div class="algo-tabs">
+      <button class="algo-tab" id="tab-beb" onclick="setAlgo('beb')">BEB</button>
+      <button class="algo-tab" id="tab-chubb" onclick="setAlgo('chubb')">CHUBB</button>
+      <button class="algo-tab" id="tab-both" onclick="setAlgo('both')">Both</button>
+    </div>
+
+    <div class="panel-title">Simulation Parameters</div>
+
+    <div class="control-group">
+      <div class="control-label"><span>Nodes (N)</span><strong id="val-nodes">10</strong></div>
+      <input type="range" id="ctrl-nodes" min="2" max="40" value="10" oninput="updateVal('nodes',this.value)">
+    </div>
+    <div class="control-group">
+      <div class="control-label"><span>Packet Rate (pkts/slot)</span><strong id="val-rate">0.3</strong></div>
+      <input type="range" id="ctrl-rate" min="0.05" max="1.0" step="0.05" value="0.3" oninput="updateVal('rate',this.value)">
+    </div>
+    <div class="control-group">
+      <div class="control-label"><span>CW<sub>min</sub></span><strong id="val-cwmin">31</strong></div>
+      <input type="range" id="ctrl-cwmin" min="7" max="63" value="31" step="4" oninput="updateVal('cwmin',this.value)">
+    </div>
+    <div class="control-group">
+      <div class="control-label"><span>CW<sub>max</sub></span><strong id="val-cwmax">1023</strong></div>
+      <input type="range" id="ctrl-cwmax" min="255" max="1023" value="1023" step="64" oninput="updateVal('cwmax',this.value)">
+    </div>
+    <div class="control-group">
+      <div class="control-label"><span>Simulation Slots</span><strong id="val-slots">500</strong></div>
+      <input type="range" id="ctrl-slots" min="100" max="2000" step="100" value="500" oninput="updateVal('slots',this.value)">
+    </div>
+
+    <div class="panel-title" style="margin-top:4px">Speed</div>
+    <div class="speed-row">
+      <button class="speed-btn" onclick="setSpeed(50)">0.5×</button>
+      <button class="speed-btn active" onclick="setSpeed(20)">1×</button>
+      <button class="speed-btn" onclick="setSpeed(8)">2×</button>
+      <button class="speed-btn" onclick="setSpeed(2)">5×</button>
+      <button class="speed-btn" onclick="setSpeed(0)">MAX</button>
+    </div>
+
+    <div class="run-controls">
+      <button class="btn btn-primary" id="btn-run" onclick="toggleRun()">▶ Run</button>
+      <button class="btn btn-secondary" id="btn-step" onclick="stepOnce()">⏭</button>
+      <button class="btn btn-danger" onclick="resetSim()">↺</button>
+    </div>
+
+    <div class="panel-title">About CHUBB</div>
+    <div class="info-box">
+      <b>CHUBB</b> (Channel Usage Based Backoff) measures each node's transmission ratio:<br><br>
+      <b>N_TRatio = N_t / T</b><br><br>
+      Uses this ratio to select an adaptive multiplicative factor G for CW adjustment — unlike BEB which blindly doubles on every collision.<br><br>
+      <b>Result:</b> 3–31% throughput improvement in dense WANETs.<br><br>
+      <i>Base paper: HCIS Journal, Vol.14, 2024 — KUST Kohat</i>
+    </div>
+
+    <div class="export-row">
+      <button class="btn btn-secondary" style="flex:1;justify-content:center" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+  </aside>
+
+  <!-- ── STATS BAR ── -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-label">Slot</div>
+      <div class="stat-value" id="stat-slot">0</div>
+      <div class="stat-sub">current</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Throughput</div>
+      <div class="stat-value green" id="stat-tput">0.00</div>
+      <div class="stat-sub">frames/slot</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Collision Rate</div>
+      <div class="stat-value red" id="stat-coll">0.00%</div>
+      <div class="stat-sub">of attempts</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Fairness (Jain)</div>
+      <div class="stat-value" id="stat-fair">—</div>
+      <div class="stat-sub">0–1, higher=fair</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Backoff</div>
+      <div class="stat-value orange" id="stat-backoff">—</div>
+      <div class="stat-sub">slots</div>
+    </div>
+    <div class="stat-card" style="align-items:flex-end">
+      <div class="stat-label">Status</div>
+      <span class="status-pill stopped" id="status-pill">Stopped</span>
+    </div>
+  </div>
+
+  <!-- ── MAIN ── -->
+  <main>
+
+    <!-- Channel timeline -->
+    <div class="section-card">
+      <div class="section-head">
+        <span class="section-head-title">Channel Timeline</span>
+        <span style="font-size:11px;color:var(--muted)">
+          <span style="color:var(--green)">■</span> Success &nbsp;
+          <span style="color:var(--red)">■</span> Collision &nbsp;
+          <span style="color:var(--surface2)">■</span> Idle
+        </span>
+      </div>
+      <div class="section-body" style="padding:10px 14px">
+        <canvas id="channel-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Node lanes -->
+    <div class="section-card">
+      <div class="section-head">
+        <span class="section-head-title">Node Backoff Counters</span>
+        <span style="font-size:11px;color:var(--muted)">Live backoff timer per node</span>
+      </div>
+      <div class="section-body">
+        <div id="lanes-container"></div>
+      </div>
+    </div>
+
+    <!-- Throughput chart -->
+    <div class="section-card">
+      <div class="section-head">
+        <span class="section-head-title">Throughput Over Time</span>
+        <span style="font-size:11px;color:var(--muted)">Rolling 50-slot window</span>
+      </div>
+      <div class="section-body" style="padding:10px 14px">
+        <canvas id="throughput-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Comparison (Both mode) -->
+    <div class="section-card" id="cmp-section" style="display:none">
+      <div class="section-head">
+        <span class="section-head-title">BEB vs CHUBB — Head to Head</span>
+      </div>
+      <div class="section-body">
+        <table id="cmp-table">
+          <thead>
+            <tr><th>Metric</th><th>BEB</th><th>CHUBB</th><th>Winner</th></tr>
+          </thead>
+          <tbody id="cmp-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Event log -->
+    <div class="section-card">
+      <div class="section-head">
+        <span class="section-head-title">Event Log</span>
+        <button class="btn btn-secondary" style="padding:3px 10px;font-size:11px" onclick="clearLog()">Clear</button>
+      </div>
+      <div class="section-body" style="padding:8px 10px">
+        <div id="event-log"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════
+//  SIMULATION ENGINE
+// ════════════════════════════════════════════════════
+
+const SLOT = 20;    // μs — IEEE 802.11 slot time
+const SIFS = 10;
+const DIFS = 50;
+
+// CHUBB multiplicative factor table (from base paper Table 3)
+// Key: [N_TRatio_min, N_TRatio_max] → {G1..G5}
+const CHUBB_TABLE = [
+  { min: 0.00, max: 0.05, G: [1.8, 1.9, 2.0, 2.1, 2.2] },
+  { min: 0.05, max: 0.08, G: [1.9, 2.0, 2.1, 2.2, 2.3] },
+  { min: 0.08, max: 0.10, G: [2.0, 2.1, 2.2, 2.3, 2.4] },
+  { min: 0.10, max: 0.13, G: [2.1, 2.2, 2.3, 2.4, 2.5] },
+  { min: 0.13, max: 1.01, G: [2.4, 2.5, 2.6, 2.7, 2.8] },
+];
+
+function chubhG(ratio, retries) {
+  const row = CHUBB_TABLE.find(r => ratio >= r.min && ratio < r.max) || CHUBB_TABLE[CHUBB_TABLE.length-1];
+  const idx = Math.min(retries, row.G.length - 1);
+  return row.G[idx];
+}
+
+class Node {
+  constructor(id, algo, cwMin, cwMax) {
+    this.id = id;
+    this.algo = algo;
+    this.cwMin = cwMin;
+    this.cwMax = cwMax;
+    this.cw = cwMin;
+    this.backoff = Math.floor(Math.random() * cwMin);
+    this.retries = 0;
+    this.hasPacket = false;
+    this.transmissions = 0;
+    this.successes = 0;
+    this.collisions = 0;
+    this.totalSlots = 0;    // slots node was active (for N_TRatio)
+    this.busySlots = 0;     // slots actually transmitting
+    this.frozen = false;
+  }
+
+  get nTRatio() {
+    return this.totalSlots === 0 ? 0 : this.busySlots / this.totalSlots;
+  }
+
+  adjustCW(success) {
+    if (success) {
+      this.cw = this.cwMin;
+      this.retries = 0;
+    } else {
+      if (this.algo === 'beb') {
+        this.cw = Math.min(this.cw * 2, this.cwMax);
+      } else {
+        // CHUBB: use N_TRatio to select G
+        const G = chubhG(this.nTRatio, this.retries);
+        this.cw = Math.min(Math.floor(this.cw * G), this.cwMax);
+      }
+      this.retries = Math.min(this.retries + 1, 4);
+    }
+    this.backoff = Math.floor(Math.random() * this.cw);
+  }
+}
+
+// ── Simulation state ──
+let state = {
+  algo: 'beb',
+  nodes: [],
+  slot: 0,
+  maxSlots: 500,
+  running: false,
+  speed: 20,   // ms between frames
+  timer: null,
+  totalSuccess: 0,
+  totalCollisions: 0,
+  totalAttempts: 0,
+  tputHistory: [],  // per-slot success (0/1/n)
+  channelHistory: [],  // 'idle'|'success'|'collision'
+  // For "Both" mode: shadow BEB sim
+  bSim: null,
+};
+
+// Params from controls
+let params = { nodes: 10, rate: 0.3, cwMin: 31, cwMax: 1023, slots: 500 };
+
+// ── Init / Reset ──
+function initSim(algo) {
+  state.nodes = Array.from({length: params.nodes}, (_, i) =>
+    new Node(i, algo, params.cwMin, params.cwMax));
+  state.slot = 0;
+  state.totalSuccess = 0;
+  state.totalCollisions = 0;
+  state.totalAttempts = 0;
+  state.tputHistory = [];
+  state.channelHistory = [];
+}
+
+function resetSim() {
+  stopSim();
+  initSim(state.algo);
+  if (state.algo === 'both') {
+    state.bSim = initSimObj('beb');
+    state.cSim = initSimObj('chubb');
+  }
+  renderAll();
+  setStatus('stopped');
+  log('info', '—', 'Simulation reset.');
+}
+
+function initSimObj(algo) {
+  return {
+    algo, slot: 0,
+    nodes: Array.from({length: params.nodes}, (_, i) =>
+      new Node(i, algo, params.cwMin, params.cwMax)),
+    totalSuccess: 0, totalCollisions: 0, totalAttempts: 0,
+    tputHistory: [], channelHistory: []
+  };
+}
+
+// ── One slot tick ──
+function tick(sim) {
+  if (sim.slot >= params.slots) return false;
+
+  // Each node: generate packet if none
+  sim.nodes.forEach(n => {
+    n.totalSlots++;
+    if (!n.hasPacket && Math.random() < params.rate) n.hasPacket = true;
+    if (n.hasPacket && n.backoff > 0) n.backoff--;
+  });
+
+  // Find nodes ready to transmit (backoff==0 and has packet)
+  const ready = sim.nodes.filter(n => n.hasPacket && n.backoff === 0);
+
+  let channelState = 'idle';
+  if (ready.length === 1) {
+    // Success
+    const n = ready[0];
+    n.successes++;
+    n.transmissions++;
+    n.busySlots++;
+    n.hasPacket = false;
+    n.adjustCW(true);
+    sim.totalSuccess++;
+    channelState = 'success';
+    if (sim === state) log('success', `N${n.id}`, `Transmitted OK — CW→${n.cw} backoff→${n.backoff}`);
+  } else if (ready.length > 1) {
+    // Collision
+    ready.forEach(n => {
+      n.collisions++;
+      n.transmissions++;
+      n.busySlots++;
+      n.adjustCW(false);
+    });
+    sim.totalCollisions++;
+    sim.totalAttempts += ready.length;
+    channelState = 'collision';
+    if (sim === state) log('collision', `${ready.length} nodes`, `Collision — nodes: ${ready.map(n=>'N'+n.id).join(',')}`);
+  }
+
+  sim.totalAttempts = Math.max(sim.totalAttempts, 1);
+  sim.tputHistory.push(channelState === 'success' ? 1 : 0);
+  sim.channelHistory.push(channelState);
+  sim.slot++;
+  return true;
+}
+
+// ── Run / Stop ──
+function toggleRun() {
+  if (state.running) { pauseSim(); return; }
+  if (state.slot >= params.slots) resetSim();
+  startSim();
+}
+
+function startSim() {
+  state.running = true;
+  setStatus('running');
+  document.getElementById('btn-run').textContent = '⏸ Pause';
+  if (state.speed === 0) {
+    runFull();
+  } else {
+    scheduleFrame();
+  }
+}
+
+function scheduleFrame() {
+  if (!state.running) return;
+  state.timer = setTimeout(() => {
+    // Run multiple ticks per frame for higher speeds
+    const ticks = state.speed <= 2 ? 20 : state.speed <= 8 ? 5 : 1;
+    for (let i = 0; i < ticks; i++) {
+      const cont = tick(state);
+      if (state.algo === 'both') { tick(state.bSim); tick(state.cSim); }
+      if (!cont || state.slot >= params.slots) { finishSim(); return; }
+    }
+    renderAll();
+    scheduleFrame();
+  }, state.speed);
+}
+
+function runFull() {
+  // Run all slots instantly
+  while (state.slot < params.slots) {
+    tick(state);
+    if (state.algo === 'both') { tick(state.bSim); tick(state.cSim); }
+  }
+  finishSim();
+  renderAll();
+}
+
+function pauseSim() {
+  state.running = false;
+  clearTimeout(state.timer);
+  setStatus('paused');
+  document.getElementById('btn-run').textContent = '▶ Run';
+}
+
+function stopSim() {
+  state.running = false;
+  clearTimeout(state.timer);
+  document.getElementById('btn-run').textContent = '▶ Run';
+}
+
+function finishSim() {
+  state.running = false;
+  clearTimeout(state.timer);
+  setStatus('stopped');
+  document.getElementById('btn-run').textContent = '▶ Run';
+  log('info', '✓', `Simulation complete — ${state.totalSuccess} successes, ${state.totalCollisions} collisions`);
+  if (state.algo === 'both') renderComparison();
+}
+
+function stepOnce() {
+  if (state.slot >= params.slots) resetSim();
+  tick(state);
+  if (state.algo === 'both') { tick(state.bSim); tick(state.cSim); }
+  renderAll();
+}
+
+// ── Render ──
+function renderAll() {
+  updateStats();
+  renderChannelCanvas();
+  renderLanes();
+  renderThroughputChart();
+  if (state.algo === 'both' && state.slot > 0) renderComparison();
+}
+
+function updateStats() {
+  const s = state.algo === 'both' ? state.cSim : state;
+  document.getElementById('stat-slot').textContent = s.slot;
+  const tput = s.slot > 0 ? (s.totalSuccess / s.slot).toFixed(3) : '0.000';
+  document.getElementById('stat-tput').textContent = tput;
+  const cr = s.totalAttempts > 0 ? ((s.totalCollisions / s.totalAttempts)*100).toFixed(1)+'%' : '0.0%';
+  document.getElementById('stat-coll').textContent = cr;
+  // Jain's fairness
+  if (s.nodes && s.nodes.length > 0) {
+    const x = s.nodes.map(n => n.successes);
+    const sumX = x.reduce((a,b)=>a+b,0);
+    const sumX2 = x.reduce((a,b)=>a+b*b,0);
+    const n = x.length;
+    const fair = sumX2 > 0 ? (sumX*sumX/(n*sumX2)).toFixed(3) : '—';
+    document.getElementById('stat-fair').textContent = fair;
+  }
+  // Avg backoff
+  if (s.nodes) {
+    const avgCW = (s.nodes.reduce((a,n)=>a+n.cw,0)/s.nodes.length).toFixed(0);
+    document.getElementById('stat-backoff').textContent = avgCW;
+  }
+}
+
+function renderChannelCanvas() {
+  const canvas = document.getElementById('channel-canvas');
+  const W = canvas.offsetWidth || 600;
+  canvas.width = W * devicePixelRatio;
+  canvas.height = 160 * devicePixelRatio;
+  canvas.style.width = W + 'px';
+  canvas.style.height = '160px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  const hist = (state.algo === 'both' ? state.cSim : state).channelHistory;
+  const show = Math.min(hist.length, Math.floor(W / 4));
+  const startIdx = Math.max(0, hist.length - show);
+  const slotW = W / Math.max(show, 1);
+
+  // Background
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  ctx.fillRect(0, 0, W, 160);
+
+  // Slots
+  for (let i = 0; i < show; i++) {
+    const s = hist[startIdx + i];
+    ctx.fillStyle = s === 'success' ? '#3fb950' : s === 'collision' ? '#f85149' : '#21262d';
+    ctx.fillRect(i * slotW, 20, Math.max(slotW - 1, 1), 100);
+  }
+
+  // Axis label
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '10px Inter';
+  ctx.fillText(`Slots ${Math.max(0, hist.length-show)}–${hist.length}  (showing last ${show} slots)`, 4, 148);
+  ctx.fillText('Channel', 4, 14);
+}
+
+function renderLanes() {
+  const container = document.getElementById('lanes-container');
+  const nodes = (state.algo === 'both' ? state.cSim : state).nodes || state.nodes;
+  if (!nodes) return;
+
+  // Build/update lane elements
+  if (container.children.length !== nodes.length) {
+    container.innerHTML = '';
+    nodes.forEach(n => {
+      const lane = document.createElement('div');
+      lane.className = 'node-lane';
+      lane.innerHTML = `
+        <span class="node-label">N${n.id}</span>
+        <div class="lane-track">
+          <canvas class="lane-canvas" id="lane-${n.id}"></canvas>
+        </div>
+        <span style="font-size:11px;font-family:JetBrains Mono,monospace;color:var(--muted);min-width:44px">CW:${n.cw}</span>
+        <span style="font-size:11px;font-family:JetBrains Mono,monospace;color:var(--accent);min-width:28px">BT:${n.backoff}</span>
+      `;
+      container.appendChild(lane);
+    });
+  } else {
+    nodes.forEach((n, i) => {
+      const lane = container.children[i];
+      const spans = lane.querySelectorAll('span');
+      spans[1].textContent = `CW:${n.cw}`;
+      spans[2].textContent = `BT:${n.backoff}`;
+    });
+  }
+
+  // Draw backoff bar
+  nodes.forEach(n => {
+    const canvas = document.getElementById('lane-'+n.id);
+    if (!canvas) return;
+    const W = canvas.offsetWidth || 200;
+    canvas.width = W * devicePixelRatio;
+    canvas.height = 24 * devicePixelRatio;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+    ctx.clearRect(0, 0, W, 24);
+
+    // Fill proportional to backoff / cwMax
+    const frac = n.cw > 0 ? n.backoff / params.cwMax : 0;
+    const color = n.backoff === 0 ? '#00d2ff' : n.collisions > n.successes ? '#f85149' : '#3fb950';
+    ctx.fillStyle = color + '33';
+    ctx.fillRect(0, 0, W * frac, 24);
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, Math.max(W * frac, 2), 24);
+  });
+}
+
+function renderThroughputChart() {
+  const canvas = document.getElementById('throughput-canvas');
+  const W = canvas.offsetWidth || 600;
+  canvas.width = W * devicePixelRatio;
+  canvas.height = 180 * devicePixelRatio;
+  canvas.style.width = W+'px';
+  canvas.style.height = '180px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.clearRect(0, 0, W, 180);
+
+  const WINDOW = 50;
+
+  function rollingTput(hist) {
+    const pts = [];
+    for (let i = WINDOW; i <= hist.length; i++) {
+      const slice = hist.slice(i - WINDOW, i);
+      pts.push(slice.reduce((a,b)=>a+b,0) / WINDOW);
+    }
+    return pts;
+  }
+
+  function drawLine(pts, color, label, dash=[]) {
+    if (pts.length < 2) return;
+    const xStep = W / (pts.length - 1);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash(dash);
+    ctx.beginPath();
+    pts.forEach((v, i) => {
+      const x = i * xStep;
+      const y = 160 - v * 150;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Label at end
+    if (pts.length > 0) {
+      ctx.fillStyle = color;
+      ctx.font = '10px Inter';
+      ctx.fillText(`${label}: ${pts[pts.length-1].toFixed(2)}`, W - 80, 160 - pts[pts.length-1]*150 - 5);
+    }
+  }
+
+  // Grid
+  ctx.strokeStyle = '#21262d';
+  ctx.lineWidth = 1;
+  [0.2, 0.4, 0.6, 0.8, 1.0].forEach(v => {
+    const y = 160 - v * 150;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '9px JetBrains Mono';
+    ctx.fillText(v.toFixed(1), 2, y - 2);
+  });
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '10px Inter';
+  ctx.fillText('Throughput (frames/slot, 50-slot rolling avg)', 2, 175);
+
+  if (state.algo === 'both') {
+    drawLine(rollingTput(state.bSim.tputHistory), '#f0883e', 'BEB', [4,3]);
+    drawLine(rollingTput(state.cSim.tputHistory), '#00d2ff', 'CHUBB');
+  } else {
+    const col = state.algo === 'beb' ? '#f0883e' : '#00d2ff';
+    drawLine(rollingTput(state.tputHistory), col, state.algo.toUpperCase());
+  }
+}
+
+function renderComparison() {
+  const b = state.bSim;
+  const c = state.cSim;
+  if (!b || !c || b.slot === 0) return;
+
+  const bTput = b.slot > 0 ? b.totalSuccess / b.slot : 0;
+  const cTput = c.slot > 0 ? c.totalSuccess / c.slot : 0;
+  const bCr = b.totalAttempts > 0 ? b.totalCollisions / b.totalAttempts : 0;
+  const cCr = c.totalAttempts > 0 ? c.totalCollisions / c.totalAttempts : 0;
+
+  function jain(nodes) {
+    const x = nodes.map(n=>n.successes);
+    const sumX = x.reduce((a,v)=>a+v,0);
+    const sumX2 = x.reduce((a,v)=>a+v*v,0);
+    return sumX2>0 ? (sumX*sumX/(x.length*sumX2)) : 0;
+  }
+  const bFair = jain(b.nodes);
+  const cFair = jain(c.nodes);
+  const bAvgCW = b.nodes.reduce((a,n)=>a+n.cw,0)/b.nodes.length;
+  const cAvgCW = c.nodes.reduce((a,n)=>a+n.cw,0)/c.nodes.length;
+
+  const rows = [
+    { metric: 'Throughput (frames/slot)', bv: bTput.toFixed(4), cv: cTput.toFixed(4), winner: cTput >= bTput ? 'CHUBB' : 'BEB', higher: true },
+    { metric: 'Collision Rate', bv: (bCr*100).toFixed(2)+'%', cv: (cCr*100).toFixed(2)+'%', winner: cCr <= bCr ? 'CHUBB' : 'BEB', higher: false },
+    { metric: "Jain's Fairness Index", bv: bFair.toFixed(4), cv: cFair.toFixed(4), winner: cFair >= bFair ? 'CHUBB' : 'BEB', higher: true },
+    { metric: 'Avg Contention Window', bv: bAvgCW.toFixed(1), cv: cAvgCW.toFixed(1), winner: cAvgCW <= bAvgCW ? 'CHUBB' : 'BEB', higher: false },
+    { metric: 'Total Successes', bv: b.totalSuccess, cv: c.totalSuccess, winner: c.totalSuccess >= b.totalSuccess ? 'CHUBB' : 'BEB', higher: true },
+    { metric: 'Total Collisions', bv: b.totalCollisions, cv: c.totalCollisions, winner: c.totalCollisions <= b.totalCollisions ? 'CHUBB' : 'BEB', higher: false },
+  ];
+
+  const tbody = document.getElementById('cmp-body');
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.metric}</td>
+      <td class="beb-val ${r.winner==='BEB'?'better':''}">${r.bv}</td>
+      <td class="chubb-val ${r.winner==='CHUBB'?'better':''}">${r.cv}</td>
+      <td style="color:${r.winner==='CHUBB'?'var(--accent)':'var(--orange)'}">${r.winner} ✓</td>
+    </tr>`).join('');
+}
+
+// ── UI helpers ──
+function setAlgo(a) {
+  state.algo = a;
+  ['beb','chubb','both'].forEach(id => {
+    const btn = document.getElementById('tab-'+id);
+    btn.className = 'algo-tab' + (id===a ? ` active-${id}` : '');
+  });
+  document.getElementById('cmp-section').style.display = a==='both' ? 'block' : 'none';
+  resetSim();
+}
+
+function updateVal(key, val) {
+  params[key] = parseFloat(val);
+  document.getElementById('val-'+key).textContent = val;
+  if (!state.running) resetSim();
+}
+
+function setSpeed(ms) {
+  state.speed = ms;
+  document.querySelectorAll('.speed-btn').forEach((b,i) => {
+    b.classList.toggle('active', [50,20,8,2,0][i] === ms);
+  });
+}
+
+function setStatus(s) {
+  const pill = document.getElementById('status-pill');
+  pill.className = 'status-pill ' + s;
+  pill.textContent = s.charAt(0).toUpperCase()+s.slice(1);
+}
+
+// ── Event log ──
+const MAX_LOG = 200;
+function log(type, node, msg) {
+  const el = document.getElementById('event-log');
+  const div = document.createElement('div');
+  div.className = `log-entry log-${type}`;
+  const nodeColor = type==='collision' ? 'var(--red)' : type==='success' ? 'var(--green)' : 'var(--muted)';
+  div.innerHTML = `<span class="log-time">[${state.slot}]</span><span class="log-node" style="color:${nodeColor}">${node}</span><span class="log-msg">${msg}</span>`;
+  el.appendChild(div);
+  if (el.children.length > MAX_LOG) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+function clearLog() { document.getElementById('event-log').innerHTML = ''; }
+
+// ── Export CSV ──
+function exportCSV() {
+  const s = state.algo==='both' ? state.cSim : state;
+  const rows = [['slot','channel_state','cum_success','cum_collisions']];
+  s.channelHistory.forEach((c,i) => {
+    const succ = s.tputHistory.slice(0,i+1).reduce((a,b)=>a+b,0);
+    rows.push([i+1, c, succ, s.totalCollisions]);
+  });
+  const csv = rows.map(r=>r.join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='simulation_results.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Init ──
+setAlgo('beb');
+resetSim();
+renderAll();
+
+// Resize observer for canvases
+const ro = new ResizeObserver(() => renderAll());
+ro.observe(document.getElementById('channel-canvas'));
+ro.observe(document.getElementById('throughput-canvas'));
+</script>
+</body>
+</html>
